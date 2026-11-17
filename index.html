@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Word Processing Explorer | From Tokens to 3D Embeddings</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js and OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#1e1b4b',
+            },
+            space: {
+              900: '#090d16',
+              800: '#0f172a',
+              700: '#1e293b',
+              600: '#334155'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Custom scrollbars and glowing animations */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    .glow-pulse {
+      box-shadow: 0 0 25px rgba(99, 102, 241, 0.45);
+      animation: pulseGlow 2.5s infinite alternate;
+    }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
+      100% { box-shadow: 0 0 30px rgba(99, 102, 241, 0.6); }
+    }
+
+    .canvas-container {
+      position: relative;
+      touch-action: none;
+      outline: none;
+    }
+
+    /* 3D Tooltip */
+    #hoverTooltip {
+      pointer-events: none;
+      transition: opacity 0.15s ease-out, transform 0.1s ease-out;
+      transform: translate(-50%, -120%);
+    }
+
+    .token-chip {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .token-chip:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body class="bg-space-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- TOP HEADER -->
+  <header class="border-b border-slate-800 bg-space-800/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">
+            LLM Word Processing Explorer
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">How Large Language Models turn human words into math and 3D vectors</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center space-x-1 sm:space-x-2 bg-space-900/80 p-1 rounded-xl border border-slate-700/60 text-xs sm:text-sm font-medium">
+        <button id="navTab3d" onclick="switchTab('3d')" class="px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 bg-indigo-600 text-white shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+          <span>3D Word Space</span>
+        </button>
+        <button id="navTabTokenizer" onclick="switchTab('tokenizer')" class="px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" /></svg>
+          <span>Tokenizer</span>
+        </button>
+        <button id="navTabVocab" onclick="switchTab('vocab')" class="px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+          <span>Vocabulary</span>
+        </button>
+        <button onclick="openAddWordModal()" class="px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 bg-emerald-600/90 hover:bg-emerald-500 text-white font-semibold shadow-sm ml-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          <span>Add Word</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- EDUCATIONAL CONCEPT BANNER -->
+  <section class="bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border-b border-indigo-900/40 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between text-xs sm:text-sm text-slate-300 gap-3">
+      <div class="flex items-center gap-2">
+        <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-medium border border-indigo-500/30">Step-by-Step Pipeline</span>
+        <span class="font-medium text-white">How models read:</span>
+        <span class="text-slate-400">1. Text ➔ 2. Tokens (Subwords) ➔ 3. IDs (Numbers) ➔ 4. High-Dim Vectors ➔ 5. Semantic Space</span>
+      </div>
+      <div class="flex items-center gap-2 text-amber-300 bg-amber-950/40 px-3 py-1 rounded-md border border-amber-800/40 text-xs">
+        <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <span><strong>Note:</strong> 3D positions are illustrative coordinates showing semantic closeness. Real LLMs use 768 to 4096 dimensions!</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 flex flex-col">
+
+    <!-- ========================================== -->
+    <!-- VIEW 1: 3D WORD SPACE (Primary Experience) -->
+    <!-- ========================================== -->
+    <div id="view3d" class="flex-1 flex flex-col gap-4">
+      <!-- 3D Header & HUD controls -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-space-800/60 p-3 rounded-2xl border border-slate-700/60">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs uppercase tracking-wider text-slate-400 font-bold px-1">Categories:</span>
+          <div id="categoryFilterContainer" class="flex items-center gap-1.5 flex-wrap">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="toggleNeighborLines()" id="btnToggleLines" class="px-2.5 py-1.5 text-xs rounded-lg border border-slate-600 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+            <span>Neighbor Lines: <strong id="lblLinesState" class="text-indigo-300">ON</strong></span>
+          </button>
+          <button onclick="reset3DCamera()" class="px-2.5 py-1.5 text-xs rounded-lg border border-slate-600 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            <span>Reset Camera</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main 3D Canvas Area + Floating Inspector -->
+      <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[580px]">
+        <!-- 3D Canvas Container -->
+        <div class="lg:col-span-8 xl:col-span-9 bg-slate-950 rounded-2xl border border-slate-800 relative overflow-hidden flex flex-col canvas-container shadow-2xl">
+          <!-- Canvas Target -->
+          <div id="threejsCanvas" class="w-full flex-1 min-h-[460px] cursor-grab active:cursor-grabbing"></div>
+
+          <!-- On-Canvas Tooltip -->
+          <div id="hoverTooltip" class="absolute z-20 hidden bg-slate-900/95 backdrop-blur text-white text-xs px-3 py-1.5 rounded-lg border border-indigo-500/50 shadow-xl shadow-black/80 pointer-events-none">
+            <span id="tooltipWord" class="font-bold text-indigo-300"></span>
+            <span id="tooltipCategory" class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-slate-400"></span>
+          </div>
+
+          <!-- Bottom Canvas Helper HUD -->
+          <div class="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+            <div class="pointer-events-auto bg-slate-900/85 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700/70 text-[11px] text-slate-300 flex items-center gap-3 shadow-lg">
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-indigo-400 inline-block animate-ping"></span>
+                <strong>Drag</strong> to rotate
+              </span>
+              <span class="text-slate-600">|</span>
+              <span><strong>Right-drag</strong> to pan</span>
+              <span class="text-slate-600">|</span>
+              <span><strong>Scroll</strong> to zoom</span>
+              <span class="text-slate-600">|</span>
+              <span><strong>Click point</strong> to inspect</span>
+            </div>
+
+            <div id="hudWordCounter" class="pointer-events-auto bg-slate-900/85 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700/70 text-[11px] text-indigo-300 font-semibold shadow-lg">
+              30 Points in Space
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side: Selected Word Inspector Card -->
+        <div class="lg:col-span-4 xl:col-span-3 flex flex-col gap-4">
+          <div class="bg-space-800/90 rounded-2xl border border-slate-700/80 p-4 flex flex-col justify-between flex-1 shadow-xl">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-700/60 mb-3">
+                <h3 class="text-xs uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  Word Details Inspector
+                </h3>
+                <span id="inspectorCategoryBadge" class="text-xs px-2 py-0.5 rounded-full font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Select a word
+                </span>
+              </div>
+
+              <!-- Empty state notice when nothing selected -->
+              <div id="inspectorEmptyState" class="py-12 text-center text-slate-500 text-sm">
+                <svg class="w-10 h-10 mx-auto mb-2 text-slate-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" /></svg>
+                <p>Click any point in the 3D space to explore its meaning, tokens, and coordinates.</p>
+              </div>
+
+              <!-- Filled Word State -->
+              <div id="inspectorContent" class="hidden space-y-4">
+                <div>
+                  <div class="flex items-baseline justify-between">
+                    <h2 id="inspectorWordTitle" class="text-2xl font-black text-white tracking-tight"></h2>
+                    <span id="inspectorPos" class="text-xs text-slate-400 italic"></span>
+                  </div>
+                  <p id="inspectorDefinition" class="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed"></p>
+                </div>
+
+                <!-- Example Sentence -->
+                <div class="bg-space-900/70 p-2.5 rounded-xl border border-slate-700/60">
+                  <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Context Example:</div>
+                  <p id="inspectorExample" class="text-xs text-indigo-200 italic leading-snug"></p>
+                </div>
+
+                <!-- Tokenization Breakdown -->
+                <div>
+                  <div class="text-[11px] uppercase font-bold text-slate-400 mb-1.5 flex items-center justify-between">
+                    <span>Token Breakdown:</span>
+                    <span id="inspectorTokenCount" class="text-xs font-semibold text-indigo-300"></span>
+                  </div>
+                  <div id="inspectorTokenChips" class="flex flex-wrap gap-1.5">
+                    <!-- Dynamic token chips -->
+                  </div>
+                </div>
+
+                <!-- 3D Coordinates & Vector preview -->
+                <div class="bg-space-900/70 p-2.5 rounded-xl border border-slate-700/60 space-y-2">
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-400 font-semibold">3D Coordinates (X, Y, Z):</span>
+                    <span id="inspectorCoords" class="font-mono text-indigo-300 text-xs"></span>
+                  </div>
+                  <div>
+                    <div class="text-[10px] text-slate-400 mb-1">Simulated 8-Dim Vector Embedding:</div>
+                    <div id="inspectorVectorBars" class="grid grid-cols-8 gap-1 h-6">
+                      <!-- Rendered miniature vector values -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Nearest Semantic Neighbors -->
+                <div>
+                  <div class="text-[11px] uppercase font-bold text-slate-400 mb-1.5 flex items-center justify-between">
+                    <span>Closest Neighbors in Space:</span>
+                    <span class="text-[10px] text-slate-500 font-normal">Euclidean Distance</span>
+                  </div>
+                  <div id="inspectorNeighborsList" class="space-y-1.5">
+                    <!-- Filled dynamically -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action buttons inside inspector -->
+            <div id="inspectorActions" class="hidden pt-3 border-t border-slate-700/60 mt-4 flex items-center gap-2">
+              <button onclick="testSelectedInTokenizer()" class="flex-1 py-1.5 px-2 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-lg text-xs font-medium transition flex items-center justify-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                <span>Test in Tokenizer</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- VIEW 2: TOKENIZATION LAB                   -->
+    <!-- ========================================== -->
+    <div id="viewTokenizer" class="hidden flex-1 flex flex-col gap-6">
+      <!-- Intro Card -->
+      <div class="bg-gradient-to-r from-space-800 to-indigo-950/40 p-5 rounded-2xl border border-slate-700/70 shadow-lg">
+        <div class="max-w-3xl">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+            Interactive Tokenizer Playground
+          </h2>
+          <p class="text-sm text-slate-300 mt-1.5 leading-relaxed">
+            Language models don't see raw text or single letters. Instead, a <strong>tokenizer</strong> chops text into chunks called <strong>tokens</strong> (frequent words, prefixes, subwords, or punctuation). Each token is assigned a unique integer ID from the model's vocabulary.
+          </p>
+        </div>
+      </div>
+
+      <!-- Live Input Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-8 flex flex-col gap-4">
+          <!-- Text Input Card -->
+          <div class="bg-space-800 rounded-2xl border border-slate-700/70 p-5 shadow-xl flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <label for="tokenizerInput" class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Type any sentence or word:
+              </label>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-400">Try presets:</span>
+                <button onclick="setTokenizerText('Language models learn representations through vectors.')" class="text-xs px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-indigo-300 transition">Sample 1</button>
+                <button onclick="setTokenizerText('Unbelievably, the caterpillar transformed into a butterfly!')" class="text-xs px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-indigo-300 transition">Sample 2</button>
+                <button onclick="setTokenizerText('Neural networks & algorithms compute 4096 dimensions.')" class="text-xs px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-indigo-300 transition">Sample 3</button>
+              </div>
+            </div>
+
+            <textarea id="tokenizerInput" rows="3" oninput="handleTokenizerInput(this.value)" placeholder="Type a sentence here... e.g. Understanding transformers is unforgettable!" class="w-full bg-space-900 border border-slate-700 rounded-xl p-3.5 text-sm sm:text-base text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"></textarea>
+
+            <!-- Stats Bar -->
+            <div class="flex flex-wrap items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-700/60">
+              <div class="flex items-center gap-4">
+                <span>Characters: <strong id="statCharCount" class="text-white font-mono">0</strong></span>
+                <span>Tokens: <strong id="statTokenCount" class="text-indigo-400 font-mono text-sm">0</strong></span>
+                <span>Avg Chars/Token: <strong id="statRatio" class="text-emerald-400 font-mono">0.0</strong></span>
+              </div>
+              <button onclick="document.getElementById('tokenizerInput').value=''; handleTokenizerInput('');" class="text-slate-400 hover:text-rose-400 transition">Clear text</button>
+            </div>
+          </div>
+
+          <!-- Token Visualization Display -->
+          <div class="bg-space-800 rounded-2xl border border-slate-700/70 p-5 shadow-xl flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <span>Distinct Token Visualization</span>
+                <span class="text-[10px] font-normal text-slate-400">(Each colored block represents one token)</span>
+              </h3>
+            </div>
+
+            <!-- Chips container -->
+            <div id="tokenChipsDisplay" class="min-h-[90px] p-4 bg-space-900 rounded-xl border border-slate-700/70 flex flex-wrap gap-2 items-center">
+              <!-- Rendered tokens -->
+            </div>
+
+            <!-- Table of Tokens & IDs -->
+            <div>
+              <h4 class="text-xs font-semibold text-slate-400 mb-2">Detailed Token Table & IDs</h4>
+              <div class="overflow-x-auto max-h-60 rounded-xl border border-slate-700/70">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead class="bg-slate-900/90 text-slate-400 uppercase font-semibold text-[10px] sticky top-0">
+                    <tr>
+                      <th class="py-2.5 px-3">#</th>
+                      <th class="py-2.5 px-3">Token String</th>
+                      <th class="py-2.5 px-3">Token ID (Vocabulary Key)</th>
+                      <th class="py-2.5 px-3">Type</th>
+                      <th class="py-2.5 px-3">Characters</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tokenTableBody" class="divide-y divide-slate-800 bg-space-900/50">
+                    <!-- Dynamic rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar Explainer -->
+        <div class="lg:col-span-4 flex flex-col gap-4">
+          <div class="bg-space-800 rounded-2xl border border-slate-700/70 p-5 shadow-xl space-y-4">
+            <h3 class="font-bold text-white text-sm flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+              Why Subwords Matter
+            </h3>
+            <ul class="text-xs text-slate-300 space-y-3 leading-relaxed">
+              <li class="flex items-start gap-2">
+                <span class="text-indigo-400 font-bold">1.</span>
+                <span><strong>Handles Rare Words:</strong> If a model sees an unusual word like <em>"unbelievability"</em>, it doesn't fail. It splits it into <code>un</code> + <code>believ</code> + <code>ability</code>.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-indigo-400 font-bold">2.</span>
+                <span><strong>Compact Vocabulary:</strong> Instead of memorizing millions of distinct words, the model only needs 32,000 to 100,000 subwords to represent any word in human language!</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-indigo-400 font-bold">3.</span>
+                <span><strong>Punctuation & Spaces:</strong> Spaces (shown here as <code>␣</code>) and punctuation are also tokens, which is why prompts consume tokens even for spaces.</span>
+              </li>
+            </ul>
+
+            <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-900/50 text-xs text-indigo-200">
+              💡 <strong>Next Step:</strong> Once tokens are converted into numbers (Token IDs), the model looks up each ID in a massive table called an <strong>Embedding Matrix</strong> to get its coordinates in 3D word space.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- VIEW 3: VOCABULARY EXPLORER                -->
+    <!-- ========================================== -->
+    <div id="viewVocab" class="hidden flex-1 flex flex-col gap-4">
+      <!-- Search & Filters -->
+      <div class="bg-space-800 p-4 rounded-2xl border border-slate-700/70 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+        <div class="flex-1 min-w-[260px] relative">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <input type="text" id="vocabSearchInput" oninput="handleVocabSearch(this.value)" placeholder="Search words, definitions, or categories..." class="w-full bg-space-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs text-slate-400 font-medium">Filter Category:</span>
+          <select id="vocabCategorySelect" onchange="handleVocabFilterChange(this.value)" class="bg-space-900 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ALL">All Categories</option>
+            <!-- Populated by JS -->
+          </select>
+
+          <span id="vocabWordCountBadge" class="text-xs px-2.5 py-1 rounded-lg bg-indigo-950 text-indigo-300 border border-indigo-800/60 font-semibold">
+            Showing 30 words
+          </span>
+        </div>
+      </div>
+
+      <!-- Words Cards Grid -->
+      <div id="vocabGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+  </main>
+
+
+  <!-- ========================================== -->
+  <!-- MODAL: ADD A NEW WORD                      -->
+  <!-- ========================================== -->
+  <div id="addWordModal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-space-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5 relative animate-in fade-in zoom-in-95 duration-200">
+      <button onclick="closeAddWordModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+
+      <div>
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold text-base">+</span>
+          Add a Word to Vocabulary & 3D Space
+        </h3>
+        <p class="text-xs text-slate-400 mt-1">Enter a new word. The system will tokenize it, compute its 3D coordinates, and place it inside the semantic cluster.</p>
+      </div>
+
+      <form id="addWordForm" onsubmit="handleAddNewWordSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">Word *</label>
+          <input type="text" id="newWordInput" required oninput="previewWordTokenization(this.value)" placeholder="e.g. quantum, happiness, astronaut..." class="w-full bg-space-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+
+        <!-- Real-time Token Preview inside modal -->
+        <div class="bg-space-900/80 p-3 rounded-xl border border-slate-700/80 space-y-1.5">
+          <div class="text-[11px] font-bold uppercase text-slate-400 flex items-center justify-between">
+            <span>Instant Tokenization Preview:</span>
+            <span id="modalTokenCount" class="text-indigo-400 font-semibold">0 tokens</span>
+          </div>
+          <div id="modalTokenChips" class="flex flex-wrap gap-1.5 min-h-[30px] items-center">
+            <span class="text-xs text-slate-500 italic">Type a word above to see how it splits...</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">Category *</label>
+            <select id="newWordCategory" required class="w-full bg-space-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="Technology">Technology</option>
+              <option value="Animals">Animals</option>
+              <option value="Emotions">Emotions</option>
+              <option value="Food">Food</option>
+              <option value="Science">Science</option>
+              <option value="Custom">Custom / General</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">Part of Speech</label>
+            <select id="newWordPos" class="w-full bg-space-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="noun">noun</option>
+              <option value="verb">verb</option>
+              <option value="adjective">adjective</option>
+              <option value="adverb">adverb</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">Simple Definition (Optional)</label>
+          <input type="text" id="newWordDef" placeholder="What does this word mean in plain English?" class="w-full bg-space-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">Example Sentence (Optional)</label>
+          <input type="text" id="newWordExample" placeholder="Provide a short sentence using this word." class="w-full bg-space-900 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-3">
+          <button type="button" onclick="closeAddWordModal()" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-700 transition">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+            <span>Add Word & Show in 3D</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastNotification" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none bg-slate-900/95 border border-emerald-500 text-white text-xs sm:text-sm px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5">
+    <div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">✓</div>
+    <span id="toastMessage">Word added successfully!</span>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-800 bg-space-800/50 py-4 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <p>Interactive Educational Tool for Understanding LLM Tokenization and Embedding Spaces.</p>
+      <p class="text-slate-400">All HTML, CSS & JavaScript self-contained in index.html</p>
+    </div>
+  </footer>
+
+  <!-- ================================================================= -->
+  <!-- JAVASCRIPT APPLICATION LOGIC                                      -->
+  <!-- ================================================================= -->
+  <script>
+    /* -------------------------------------------------------------
+       1. DATA STRUCTURES & VOCABULARY INITIALIZATION
+       ------------------------------------------------------------- */
+    const CATEGORIES = {
+      Technology: { color: 0x38bdf8, hex: '#38bdf8', center: [30, 20, 10] },
+      Animals:    { color: 0x34d399, hex: '#34d399', center: [-30, -15, 20] },
+      Emotions:   { color: 0xf472b6, hex: '#f472b6', center: [20, -25, -25] },
+      Food:       { color: 0xfbbf24, hex: '#fbbf24', center: [-25, 25, -20] },
+      Science:    { color: 0xa78bfa, hex: '#a78bfa', center: [5, 30, 30] },
+      Custom:     { color: 0x22d3ee, hex: '#22d3ee', center: [0, 0, 0] }
+    };
+
+    // Initial words dataset with rich definitions, examples, subword tokens, and 3D positions
+    let WORDS = [
+      // Technology
+      {
+        id: 'w_algorithm',
+        word: 'algorithm',
+        category: 'Technology',
+        pos: 'noun',
+        definition: 'A step-by-step set of rules or calculations used by computers to solve problems.',
+        example: 'Language models use a deep learning algorithm to predict the next word.',
+        tokens: ['al', 'gorithm'],
+        tokenIds: [1429, 38102],
+        coords: [28, 22, 12],
+        vector: [0.85, 0.72, -0.45, 0.91, -0.12, 0.63, 0.38, -0.29]
+      },
+      {
+        id: 'w_computer',
+        word: 'computer',
+        category: 'Technology',
+        pos: 'noun',
+        definition: 'An electronic device for storing and processing data according to instructions.',
+        example: 'Every computer runs code converted into binary electrical signals.',
+        tokens: ['com', 'puter'],
+        tokenIds: [2812, 4921],
+        coords: [32, 19, 8],
+        vector: [0.88, 0.68, -0.41, 0.89, -0.08, 0.59, 0.42, -0.31]
+      },
+      {
+        id: 'w_neural',
+        word: 'neural',
+        category: 'Technology',
+        pos: 'adjective',
+        definition: 'Relating to a nerve or network inspired by biological brain connections.',
+        example: 'Artificial neural networks adjust mathematical weights as they train.',
+        tokens: ['neur', 'al'],
+        tokenIds: [18934, 302],
+        coords: [34, 25, 14],
+        vector: [0.92, 0.79, -0.38, 0.95, -0.20, 0.71, 0.35, -0.22]
+      },
+      {
+        id: 'w_code',
+        word: 'code',
+        category: 'Technology',
+        pos: 'noun',
+        definition: 'Program instructions written in a programming language.',
+        example: 'Clean code is readable, modular, and easy to maintain.',
+        tokens: ['code'],
+        tokenIds: [3415],
+        coords: [26, 17, 7],
+        vector: [0.81, 0.64, -0.49, 0.84, -0.15, 0.55, 0.39, -0.35]
+      },
+      {
+        id: 'w_robot',
+        word: 'robot',
+        category: 'Technology',
+        pos: 'noun',
+        definition: 'A machine capable of carrying out a complex series of actions automatically.',
+        example: 'The autonomous robot navigated the obstacle course with sensors.',
+        tokens: ['ro', 'bot'],
+        tokenIds: [7214, 5493],
+        coords: [31, 14, 15],
+        vector: [0.79, 0.75, -0.33, 0.88, -0.18, 0.68, 0.45, -0.26]
+      },
+
+      // Animals
+      {
+        id: 'w_dog',
+        word: 'dog',
+        category: 'Animals',
+        pos: 'noun',
+        definition: 'A domesticated carnivorous mammal known for loyalty and keen smell.',
+        example: 'The dog wagged its tail when its owner arrived home.',
+        tokens: ['dog'],
+        tokenIds: [4219],
+        coords: [-28, -14, 18],
+        vector: [-0.75, -0.82, 0.65, -0.32, 0.88, 0.12, -0.54, 0.71]
+      },
+      {
+        id: 'w_wolf',
+        word: 'wolf',
+        category: 'Animals',
+        pos: 'noun',
+        definition: 'A wild carnivorous mammal that is the ancestor of domestic dogs.',
+        example: 'A lone wolf howled under the full moon across the snowy valley.',
+        tokens: ['wolf'],
+        tokenIds: [9842],
+        coords: [-31, -17, 22],
+        vector: [-0.78, -0.85, 0.69, -0.36, 0.91, 0.16, -0.58, 0.74]
+      },
+      {
+        id: 'w_cat',
+        word: 'cat',
+        category: 'Animals',
+        pos: 'noun',
+        definition: 'A small domesticated carnivorous mammal with soft fur and sharp retractile claws.',
+        example: 'The cat curled up on the sunny windowsill for an afternoon nap.',
+        tokens: ['cat'],
+        tokenIds: [5123],
+        coords: [-26, -12, 16],
+        vector: [-0.72, -0.79, 0.61, -0.28, 0.84, 0.08, -0.51, 0.68]
+      },
+      {
+        id: 'w_tiger',
+        word: 'tiger',
+        category: 'Animals',
+        pos: 'noun',
+        definition: 'A large wild cat with a reddish-orange coat striped with black.',
+        example: 'The tiger silently prowled through the dense rainforest.',
+        tokens: ['tiger'],
+        tokenIds: [13429],
+        coords: [-33, -13, 24],
+        vector: [-0.81, -0.87, 0.73, -0.34, 0.94, 0.19, -0.62, 0.77]
+      },
+      {
+        id: 'w_dolphin',
+        word: 'dolphin',
+        category: 'Animals',
+        pos: 'noun',
+        definition: 'A highly intelligent marine mammal known for its playful whistle clicks.',
+        example: 'We spotted a pod of dolphins leaping through the ocean waves.',
+        tokens: ['dol', 'phin'],
+        tokenIds: [21405, 14210],
+        coords: [-32, -22, 19],
+        vector: [-0.68, -0.76, 0.58, -0.22, 0.82, 0.25, -0.48, 0.62]
+      },
+
+      // Emotions
+      {
+        id: 'w_joy',
+        word: 'joy',
+        category: 'Emotions',
+        pos: 'noun',
+        definition: 'A feeling of great pleasure, delight, and contentment.',
+        example: 'Her face radiated pure joy when she heard the wonderful news.',
+        tokens: ['joy'],
+        tokenIds: [8412],
+        coords: [22, -24, -22],
+        vector: [0.15, 0.92, 0.88, -0.74, 0.21, -0.65, 0.83, 0.34]
+      },
+      {
+        id: 'w_happiness',
+        word: 'happiness',
+        category: 'Emotions',
+        pos: 'noun',
+        definition: 'The state of being joyful, fulfilled, and satisfied with life.',
+        example: 'True happiness often comes from meaningful connection with others.',
+        tokens: ['happi', 'ness'],
+        tokenIds: [6120, 892],
+        coords: [24, -22, -24],
+        vector: [0.18, 0.95, 0.91, -0.71, 0.24, -0.62, 0.86, 0.38]
+      },
+      {
+        id: 'w_sadness',
+        word: 'sadness',
+        category: 'Emotions',
+        pos: 'noun',
+        definition: 'The emotional pain associated with loss, sorrow, or disappointment.',
+        example: 'Listening to the nostalgic melody brought a gentle touch of sadness.',
+        tokens: ['sad', 'ness'],
+        tokenIds: [5821, 892],
+        coords: [16, -28, -28],
+        vector: [-0.22, -0.88, -0.75, 0.68, -0.32, 0.58, -0.79, -0.42]
+      },
+      {
+        id: 'w_anger',
+        word: 'anger',
+        category: 'Emotions',
+        pos: 'noun',
+        definition: 'A strong feeling of annoyance, displeasure, or hostility.',
+        example: 'He took three deep breaths to calm his rising anger.',
+        tokens: ['ang', 'er'],
+        tokenIds: [14201, 289],
+        coords: [14, -21, -26],
+        vector: [0.42, -0.79, -0.68, 0.82, -0.15, 0.72, -0.65, -0.38]
+      },
+      {
+        id: 'w_peace',
+        word: 'peace',
+        category: 'Emotions',
+        pos: 'noun',
+        definition: 'Freedom from disturbance; tranquility, serenity, and harmony.',
+        example: 'Sitting quietly by the lake filled her mind with deep peace.',
+        tokens: ['peace'],
+        tokenIds: [4891],
+        coords: [21, -27, -21],
+        vector: [0.08, 0.85, 0.81, -0.80, 0.29, -0.71, 0.78, 0.41]
+      },
+
+      // Food
+      {
+        id: 'w_apple',
+        word: 'apple',
+        category: 'Food',
+        pos: 'noun',
+        definition: 'The round fruit of a tree, typically red, green, or yellow with crisp flesh.',
+        example: 'She sliced a crisp green apple for an afternoon snack.',
+        tokens: ['apple'],
+        tokenIds: [6712],
+        coords: [-24, 27, -18],
+        vector: [-0.42, 0.35, -0.78, 0.12, -0.55, -0.81, 0.62, 0.75]
+      },
+      {
+        id: 'w_bread',
+        word: 'bread',
+        category: 'Food',
+        pos: 'noun',
+        definition: 'Food made of flour, water, and yeast or another leavening agent, baked.',
+        example: 'The aroma of freshly baked sourdough bread filled the kitchen.',
+        tokens: ['bread'],
+        tokenIds: [7914],
+        coords: [-26, 23, -22],
+        vector: [-0.45, 0.31, -0.82, 0.08, -0.58, -0.78, 0.58, 0.71]
+      },
+      {
+        id: 'w_coffee',
+        word: 'coffee',
+        category: 'Food',
+        pos: 'noun',
+        definition: 'A hot beverage brewed from the roasted, ground seeds of a coffee plant.',
+        example: 'He poured a steaming mug of black coffee to start the morning.',
+        tokens: ['coffee'],
+        tokenIds: [4128],
+        coords: [-28, 25, -17],
+        vector: [-0.38, 0.42, -0.75, 0.16, -0.51, -0.85, 0.65, 0.79]
+      },
+      {
+        id: 'w_pizza',
+        word: 'pizza',
+        category: 'Food',
+        pos: 'noun',
+        definition: 'A dish of Italian origin consisting of a flat round base baked with tomato sauce and cheese.',
+        example: 'We ordered a wood-fired pizza topped with basil and mozzarella.',
+        tokens: ['piz', 'za'],
+        tokenIds: [12940, 2410],
+        coords: [-22, 22, -24],
+        vector: [-0.49, 0.28, -0.85, 0.05, -0.62, -0.74, 0.54, 0.68]
+      },
+      {
+        id: 'w_honey',
+        word: 'honey',
+        category: 'Food',
+        pos: 'noun',
+        definition: 'A sweet, sticky yellowish-brown fluid made by bees and other insects from floral nectar.',
+        example: 'She stirred a golden spoonful of raw honey into her herbal tea.',
+        tokens: ['honey'],
+        tokenIds: [9132],
+        coords: [-23, 29, -19],
+        vector: [-0.36, 0.39, -0.71, 0.19, -0.48, -0.88, 0.69, 0.82]
+      },
+
+      // Science
+      {
+        id: 'w_star',
+        word: 'star',
+        category: 'Science',
+        pos: 'noun',
+        definition: 'A luminous sphere of plasma held together by its own gravity.',
+        example: 'Our Sun is an ordinary star located in an arm of the Milky Way.',
+        tokens: ['star'],
+        tokenIds: [3120],
+        coords: [4, 32, 28],
+        vector: [0.65, -0.25, 0.84, 0.71, 0.35, -0.48, 0.91, -0.52]
+      },
+      {
+        id: 'w_galaxy',
+        word: 'galaxy',
+        category: 'Science',
+        pos: 'noun',
+        definition: 'A system of millions or billions of stars, together with gas and dust, bound by gravity.',
+        example: 'The Andromeda galaxy contains approximately one trillion stars.',
+        tokens: ['gal', 'axy'],
+        tokenIds: [9418, 18921],
+        coords: [7, 34, 32],
+        vector: [0.69, -0.21, 0.89, 0.75, 0.39, -0.44, 0.94, -0.48]
+      },
+      {
+        id: 'w_gravity',
+        word: 'gravity',
+        category: 'Science',
+        pos: 'noun',
+        definition: 'The fundamental force that attracts a body toward the center of the earth, or toward any other physical body.',
+        example: 'Einstein described gravity as the curvature of spacetime caused by mass.',
+        tokens: ['grav', 'ity'],
+        tokenIds: [14820, 482],
+        coords: [2, 28, 27],
+        vector: [0.62, -0.29, 0.81, 0.68, 0.31, -0.52, 0.87, -0.56]
+      },
+      {
+        id: 'w_quantum',
+        word: 'quantum',
+        category: 'Science',
+        pos: 'adjective',
+        definition: 'Relating to the smallest discrete quantity of energy in physics.',
+        example: 'Quantum entanglement allows particles to share states across vast distances.',
+        tokens: ['quan', 'tum'],
+        tokenIds: [18412, 11048],
+        coords: [9, 31, 26],
+        vector: [0.72, -0.18, 0.86, 0.78, 0.42, -0.41, 0.92, -0.45]
+      },
+      {
+        id: 'w_atom',
+        word: 'atom',
+        category: 'Science',
+        pos: 'noun',
+        definition: 'The basic unit of a chemical element, consisting of protons, neutrons, and electrons.',
+        example: 'Everything in the physical universe is composed of interacting atoms.',
+        tokens: ['at', 'om'],
+        tokenIds: [412, 594],
+        coords: [3, 26, 33],
+        vector: [0.58, -0.32, 0.78, 0.64, 0.28, -0.55, 0.84, -0.59]
+      },
+
+      // Additional Cross-domain words
+      {
+        id: 'w_concept',
+        word: 'concept',
+        category: 'Technology',
+        pos: 'noun',
+        definition: 'An abstract idea or a general notion conceived in the mind.',
+        example: 'Vectors represent semantic concepts in modern language architectures.',
+        tokens: ['con', 'cept'],
+        tokenIds: [742, 6932],
+        coords: [21, 15, 12],
+        vector: [0.68, 0.52, -0.21, 0.72, 0.12, 0.41, 0.51, -0.18]
+      },
+      {
+        id: 'w_forest',
+        word: 'forest',
+        category: 'Animals',
+        pos: 'noun',
+        definition: 'A large area dominated by trees and home to wild animal ecosystems.',
+        example: 'Birds and mammals thrive within the canopy of the temperate forest.',
+        tokens: ['for', 'est'],
+        tokenIds: [348, 489],
+        coords: [-25, -20, 26],
+        vector: [-0.64, -0.71, 0.54, -0.18, 0.78, 0.31, -0.44, 0.59]
+      },
+      {
+        id: 'w_empathy',
+        word: 'empathy',
+        category: 'Emotions',
+        pos: 'noun',
+        definition: 'The ability to understand and share the feelings of another.',
+        example: 'Empathy allows people to build compassionate relationships.',
+        tokens: ['em', 'pathy'],
+        tokenIds: [782, 19412],
+        coords: [25, -20, -20],
+        vector: [0.22, 0.89, 0.84, -0.68, 0.28, -0.58, 0.81, 0.36]
+      },
+      {
+        id: 'w_chocolate',
+        word: 'chocolate',
+        category: 'Food',
+        pos: 'noun',
+        definition: 'A sweet food preparation of roasted and ground cacao seeds.',
+        example: 'Dark chocolate contains rich antioxidants and a velvety flavor.',
+        tokens: ['choc', 'olate'],
+        tokenIds: [14981, 9841],
+        coords: [-20, 26, -21],
+        vector: [-0.41, 0.37, -0.79, 0.14, -0.52, -0.82, 0.63, 0.77]
+      },
+      {
+        id: 'w_telescope',
+        word: 'telescope',
+        category: 'Science',
+        pos: 'noun',
+        definition: 'An optical instrument designed to make distant objects appear nearer.',
+        example: 'The space telescope captured deep images of the earliest galaxies.',
+        tokens: ['tele', 'scope'],
+        tokenIds: [8120, 11482],
+        coords: [6, 29, 35],
+        vector: [0.66, -0.22, 0.87, 0.73, 0.37, -0.46, 0.93, -0.50]
+      }
+    ];
+
+    let selectedWord = null;
+    let activeCategoryFilter = 'ALL';
+    let showNeighborLines = true;
+
+    /* -------------------------------------------------------------
+       2. SUBWORD TOKENIZER SIMULATOR
+       ------------------------------------------------------------- */
+    // Deterministic hash to generate realistic-looking token IDs [1000 - 99999]
+    function hashStringToTokenId(str) {
+      let hash = 5381;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) + hash) + str.charCodeAt(i);
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      return Math.abs(hash % 90000) + 10000;
+    }
+
+    // Common BPE subword dictionary fragments
+    const KNOWN_SUBWORDS = [
+      'un', 're', 'in', 'im', 'dis', 'non', 'pre', 'post', 'anti', 'auto', 'tele', 'inter',
+      'ing', 'tion', 'able', 'ible', 'ness', 'ment', 'ful', 'less', 'ity', 'ize', 'ised', 'ized',
+      'est', 'er', 'ed', 'ly', 'al', 'ic', 'ous', 'ive', 'ism', 'ist', 'al',
+      'learn', 'vector', 'model', 'neural', 'compute', 'cat', 'dog', 'word', 'token',
+      'code', 'algo', 'rithm', 'happy', 'happi', 'sad', 'trans', 'form', 'former', 'inform'
+    ];
+
+    // Token palette colors
+    const TOKEN_COLORS = [
+      { bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/40' },
+      { bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/40' },
+      { bg: 'bg-emerald-500/20', text: 'text-emerald-300', border: 'border-emerald-500/40' },
+      { bg: 'bg-sky-500/20',     text: 'text-sky-300',     border: 'border-sky-500/40' },
+      { bg: 'bg-amber-500/20',   text: 'text-amber-300',   border: 'border-amber-500/40' },
+      { bg: 'bg-rose-500/20',    text: 'text-rose-300',    border: 'border-rose-500/40' },
+      { bg: 'bg-cyan-500/20',    text: 'text-cyan-300',    border: 'border-cyan-500/40' },
+      { bg: 'bg-violet-500/20',  text: 'text-violet-300',  border: 'border-violet-500/40' }
+    ];
+
+    function tokenizeWordPiece(rawWord) {
+      if (!rawWord) return [];
+
+      // Check if existing in our curated vocabulary
+      const matched = WORDS.find(w => w.word.toLowerCase() === rawWord.toLowerCase());
+      if (matched && matched.tokens) {
+        return matched.tokens;
+      }
+
+      const lower = rawWord.toLowerCase();
+      // If short, single token
+      if (lower.length <= 4) {
+        return [rawWord];
+      }
+
+      // Check common prefixes
+      const prefixes = ['un', 're', 'dis', 'in', 'im', 'non', 'pre', 'anti', 'auto', 'tele', 'trans'];
+      for (const p of prefixes) {
+        if (lower.startsWith(p) && lower.length > p.length + 2) {
+          const rest = rawWord.slice(p.length);
+          return [rawWord.slice(0, p.length), ...tokenizeWordPiece(rest)];
+        }
+      }
+
+      // Check common suffixes
+      const suffixes = ['tion', 'able', 'ible', 'ness', 'ment', 'ful', 'less', 'ity', 'ing', 'est', 'ed', 'ly', 'er', 'al'];
+      for (const s of suffixes) {
+        if (lower.endsWith(s) && lower.length > s.length + 2) {
+          const stem = rawWord.slice(0, rawWord.length - s.length);
+          const suffix = rawWord.slice(rawWord.length - s.length);
+          return [...tokenizeWordPiece(stem), suffix];
+        }
+      }
+
+      // Fallback split around middle if long word
+      if (lower.length > 7) {
+        const mid = Math.floor(rawWord.length / 2);
+        return [rawWord.slice(0, mid), rawWord.slice(mid)];
+      }
+
+      return [rawWord];
+    }
+
+    // Tokenize full sentence or paragraph (preserving punctuation and spacing tokens)
+    function tokenizeText(text) {
+      if (!text || text.trim() === '') return [];
+
+      // Regex matches: words, spaces, punctuation
+      const regex = /([A-Za-z0-9]+)|(\s+)|([^\sA-Za-z0-9])/g;
+      const tokens = [];
+      let match;
+
+      while ((match = regex.exec(text)) !== null) {
+        const [full, wordMatch, spaceMatch, punctMatch] = match;
+
+        if (spaceMatch) {
+          tokens.push({
+            text: spaceMatch,
+            display: '␣',
+            type: 'space',
+            id: 220 + (spaceMatch.length % 5)
+          });
+        } else if (punctMatch) {
+          tokens.push({
+            text: punctMatch,
+            display: punctMatch,
+            type: 'punctuation',
+            id: hashStringToTokenId(punctMatch)
+          });
+        } else if (wordMatch) {
+          const pieces = tokenizeWordPiece(wordMatch);
+          pieces.forEach((piece, idx) => {
+            tokens.push({
+              text: piece,
+              display: piece,
+              type: idx === 0 ? 'word/root' : 'subword',
+              id: hashStringToTokenId(piece.toLowerCase())
+            });
+          });
+        }
+      }
+
+      return tokens;
+    }
+
+
+    /* -------------------------------------------------------------
+       3. THREE.JS 3D WORD SPACE INITIALIZATION
+       ------------------------------------------------------------- */
+    let scene, camera, renderer, controls;
+    let wordObjects = []; // Stores mesh and data reference
+    let neighborLineObjects = [];
+    let raycaster, mouse;
+    let hoveredMesh = null;
+    let activeTween = null;
+
+    function init3DSpace() {
+      const container = document.getElementById('threejsCanvas');
+      if (!container) return;
+
+      const width = container.clientWidth || 800;
+      const height = container.clientHeight || 500;
+
+      // 1. Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x070b14);
+      scene.fog = new THREE.FogExp2(0x070b14, 0.007);
+
+      // 2. Camera
+      camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
+      camera.position.set(0, 45, 120);
+
+      // 3. Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(width, height);
+      renderer.shadowMap.enabled = false;
+      container.innerHTML = '';
+      container.appendChild(renderer.domElement);
+
+      // 4. OrbitControls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.rotateSpeed = 0.7;
+      controls.zoomSpeed = 0.9;
+      controls.minDistance = 15;
+      controls.maxDistance = 260;
+
+      // 5. Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+      scene.add(ambientLight);
+
+      const dirLight1 = new THREE.DirectionalLight(0x6366f1, 1.2);
+      dirLight1.position.set(50, 80, 50);
+      scene.add(dirLight1);
+
+      const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.8);
+      dirLight2.position.set(-50, -40, -50);
+      scene.add(dirLight2);
+
+      // 6. Subtle Floor Grid & Decorative Particles
+      const gridHelper = new THREE.GridHelper(160, 32, 0x334155, 0x1e293b);
+      gridHelper.position.y = -35;
+      scene.add(gridHelper);
+
+      addBackgroundStars();
+
+      // 7. Raycaster for clicking & hover
+      raycaster = new THREE.Raycaster();
+      raycaster.params.Points.threshold = 2.5;
+      mouse = new THREE.Vector2(-999, -999);
+
+      // Attach event listeners
+      renderer.domElement.addEventListener('mousemove', onCanvasMouseMove);
+      renderer.domElement.addEventListener('click', onCanvasClick);
+      renderer.domElement.addEventListener('mouseleave', onCanvasMouseLeave);
+      window.addEventListener('resize', onWindowResize);
+
+      // Render Words into 3D
+      renderWordMeshes();
+
+      // Render category centroids
+      renderCategoryHalos();
+
+      // Start animation loop
+      animate3D();
+    }
+
+    // Add gentle ambient cosmic particles
+    function addBackgroundStars() {
+      const starGeo = new THREE.BufferGeometry();
+      const count = 400;
+      const positions = new Float32Array(count * 3);
+
+      for (let i = 0; i < count * 3; i += 3) {
+        positions[i] = (Math.random() - 0.5) * 300;
+        positions[i + 1] = (Math.random() - 0.5) * 200;
+        positions[i + 2] = (Math.random() - 0.5) * 300;
+      }
+      starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const starMat = new THREE.PointsMaterial({
+        color: 0x475569,
+        size: 1.2,
+        transparent: true,
+        opacity: 0.6
+      });
+      const starField = new THREE.Points(starGeo, starMat);
+      scene.add(starField);
+    }
+
+    // Render faint glowing category center indicators
+    function renderCategoryHalos() {
+      Object.entries(CATEGORIES).forEach(([catName, data]) => {
+        const ringGeo = new THREE.RingGeometry(10, 10.4, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: data.color,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.15
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.set(data.center[0], data.center[1] - 8, data.center[2]);
+        ringMesh.rotation.x = Math.PI / 2;
+        scene.add(ringMesh);
+      });
+    }
+
+    // Create 3D spheres for all words
+    function renderWordMeshes() {
+      // Clear existing
+      wordObjects.forEach(obj => scene.remove(obj.mesh));
+      wordObjects = [];
+
+      const sphereGeo = new THREE.SphereGeometry(2.2, 24, 24);
+
+      WORDS.forEach(wordData => {
+        const catInfo = CATEGORIES[wordData.category] || CATEGORIES.Custom;
+        const color = catInfo.color;
+
+        const sphereMat = new THREE.MeshStandardMaterial({
+          color: color,
+          emissive: color,
+          emissiveIntensity: 0.35,
+          roughness: 0.25,
+          metalness: 0.5
+        });
+
+        const mesh = new THREE.Mesh(sphereGeo, sphereMat);
+        mesh.position.set(wordData.coords[0], wordData.coords[1], wordData.coords[2]);
+        mesh.userData = { wordData: wordData };
+
+        // Outer glow halo
+        const haloGeo = new THREE.SphereGeometry(2.8, 16, 16);
+        const haloMat = new THREE.MeshBasicMaterial({
+          color: color,
+          transparent: true,
+          opacity: 0.18,
+          wireframe: true
+        });
+        const halo = new THREE.Mesh(haloGeo, haloMat);
+        mesh.add(halo);
+
+        scene.add(mesh);
+        wordObjects.push({ mesh, wordData, halo });
+      });
+
+      document.getElementById('hudWordCounter').innerText = `${WORDS.length} Words in Space`;
+    }
+
+    // 3D Animation Loop
+    function animate3D() {
+      requestAnimationFrame(animate3D);
+
+      controls.update();
+
+      // Subtle float animation for word spheres
+      const time = performance.now() * 0.0015;
+      wordObjects.forEach((obj, idx) => {
+        obj.mesh.position.y = obj.wordData.coords[1] + Math.sin(time + idx * 0.7) * 0.4;
+      });
+
+      // Camera lerp animation if jumping to a word
+      if (activeTween) {
+        activeTween.step();
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Raycasting mouse interaction
+    function onCanvasMouseMove(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(wordObjects.map(o => o.mesh));
+
+      const tooltip = document.getElementById('hoverTooltip');
+
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        const data = hit.userData.wordData;
+
+        // Position tooltip
+        tooltip.style.left = `${event.clientX}px`;
+        tooltip.style.top = `${event.clientY - 12}px`;
+        document.getElementById('tooltipWord').innerText = data.word;
+        document.getElementById('tooltipCategory').innerText = data.category;
+        tooltip.classList.remove('hidden');
+
+        if (hoveredMesh !== hit) {
+          if (hoveredMesh) resetMeshAppearance(hoveredMesh);
+          hoveredMesh = hit;
+          highlightMeshAppearance(hoveredMesh);
+        }
+      } else {
+        tooltip.classList.add('hidden');
+        if (hoveredMesh) {
+          resetMeshAppearance(hoveredMesh);
+          hoveredMesh = null;
+        }
+      }
+    }
+
+    function onCanvasMouseLeave() {
+      document.getElementById('hoverTooltip').classList.add('hidden');
+      if (hoveredMesh) {
+        resetMeshAppearance(hoveredMesh);
+        hoveredMesh = null;
+      }
+    }
+
+    function highlightMeshAppearance(mesh) {
+      mesh.scale.set(1.4, 1.4, 1.4);
+      mesh.material.emissiveIntensity = 0.8;
+    }
+
+    function resetMeshAppearance(mesh) {
+      if (selectedWord && mesh.userData.wordData.id === selectedWord.id) {
+        mesh.scale.set(1.5, 1.5, 1.5);
+        mesh.material.emissiveIntensity = 1.0;
+      } else {
+        mesh.scale.set(1.0, 1.0, 1.0);
+        mesh.material.emissiveIntensity = 0.35;
+      }
+    }
+
+    function onCanvasClick(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(wordObjects.map(o => o.mesh));
+
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        selectWord(hit.userData.wordData, true);
+      }
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('threejsCanvas');
+      if (!container || !renderer || !camera) return;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
+
+    /* -------------------------------------------------------------
+       4. NEAREST NEIGHBORS & VECTOR CALCULATIONS
+       ------------------------------------------------------------- */
+    function calculateEuclideanDistance(coordA, coordB) {
+      const dx = coordA[0] - coordB[0];
+      const dy = coordA[1] - coordB[1];
+      const dz = coordA[2] - coordB[2];
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    function findNearestNeighbors(targetWord, count = 3) {
+      const list = WORDS
+        .filter(w => w.id !== targetWord.id)
+        .map(w => ({
+          word: w,
+          distance: calculateEuclideanDistance(targetWord.coords, w.coords)
+        }))
+        .sort((a, b) => a.distance - b.distance);
+
+      return list.slice(0, count);
+    }
+
+    function updateNeighborLines(targetWord) {
+      // Remove previous lines
+      neighborLineObjects.forEach(line => scene.remove(line));
+      neighborLineObjects = [];
+
+      if (!showNeighborLines || !targetWord) return;
+
+      const neighbors = findNearestNeighbors(targetWord, 3);
+      const startPos = new THREE.Vector3(...targetWord.coords);
+
+      neighbors.forEach(item => {
+        const endPos = new THREE.Vector3(...item.word.coords);
+        const points = [startPos, endPos];
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+
+        const lineMat = new THREE.LineDashedMaterial({
+          color: 0x818cf8,
+          dashSize: 2,
+          gapSize: 1,
+          linewidth: 1.5,
+          transparent: true,
+          opacity: 0.75
+        });
+
+        const line = new THREE.Line(lineGeo, lineMat);
+        line.computeLineDistances();
+        scene.add(line);
+        neighborLineObjects.push(line);
+      });
+    }
+
+    function toggleNeighborLines() {
+      showNeighborLines = !showNeighborLines;
+      document.getElementById('lblLinesState').innerText = showNeighborLines ? 'ON' : 'OFF';
+      document.getElementById('lblLinesState').className = showNeighborLines ? 'text-indigo-300' : 'text-slate-500';
+      if (selectedWord) {
+        updateNeighborLines(selectedWord);
+      }
+    }
+
+    function reset3DCamera() {
+      flyCameraTo([0, 45, 120], [0, 0, 0]);
+    }
+
+    function flyCameraTo(targetCamPos, targetFocusPoint) {
+      const startCamPos = camera.position.clone();
+      const endCamPos = new THREE.Vector3(...targetCamPos);
+      const startTarget = controls.target.clone();
+      const endTarget = new THREE.Vector3(...targetFocusPoint);
+
+      const startTime = performance.now();
+      const duration = 850; // ms
+
+      activeTween = {
+        step: () => {
+          const now = performance.now();
+          const progress = Math.min((now - startTime) / duration, 1.0);
+          // Ease-out cubic
+          const t = 1 - Math.pow(1 - progress, 3);
+
+          camera.position.lerpVectors(startCamPos, endCamPos, t);
+          controls.target.lerpVectors(startTarget, endTarget, t);
+
+          if (progress >= 1.0) {
+            activeTween = null;
+          }
+        }
+      };
+    }
+
+
+    /* -------------------------------------------------------------
+       5. WORD SELECTION & INSPECTOR CARD
+       ------------------------------------------------------------- */
+    function selectWord(wordData, animateCamera = false) {
+      selectedWord = wordData;
+
+      // Update 3D meshes visual state
+      wordObjects.forEach(obj => {
+        if (obj.wordData.id === wordData.id) {
+          obj.mesh.scale.set(1.5, 1.5, 1.5);
+          obj.mesh.material.emissiveIntensity = 1.0;
+        } else {
+          obj.mesh.scale.set(1.0, 1.0, 1.0);
+          obj.mesh.material.emissiveIntensity = 0.35;
+        }
+      });
+
+      // Update connection lines
+      updateNeighborLines(wordData);
+
+      // Smooth camera focus if requested
+      if (animateCamera) {
+        const targetFocus = wordData.coords;
+        const camOffset = [targetFocus[0] + 12, targetFocus[1] + 10, targetFocus[2] + 35];
+        flyCameraTo(camOffset, targetFocus);
+      }
+
+      // Populate Inspector UI
+      document.getElementById('inspectorEmptyState').classList.add('hidden');
+      document.getElementById('inspectorContent').classList.remove('hidden');
+      document.getElementById('inspectorActions').classList.remove('hidden');
+
+      document.getElementById('inspectorWordTitle').innerText = wordData.word;
+      document.getElementById('inspectorPos').innerText = wordData.pos ? `(${wordData.pos})` : '';
+      document.getElementById('inspectorDefinition').innerText = wordData.definition || 'No definition available.';
+      document.getElementById('inspectorExample').innerText = wordData.example ? `"${wordData.example}"` : 'No example sentence provided.';
+
+      const catBadge = document.getElementById('inspectorCategoryBadge');
+      catBadge.innerText = wordData.category;
+      catBadge.style.borderColor = (CATEGORIES[wordData.category] || CATEGORIES.Custom).hex;
+      catBadge.style.color = (CATEGORIES[wordData.category] || CATEGORIES.Custom).hex;
+
+      // Render tokens
+      const tokenContainer = document.getElementById('inspectorTokenChips');
+      tokenContainer.innerHTML = '';
+      const tokens = wordData.tokens || [wordData.word];
+      const tokenIds = wordData.tokenIds || [hashStringToTokenId(wordData.word)];
+
+      document.getElementById('inspectorTokenCount').innerText = `${tokens.length} token${tokens.length > 1 ? 's' : ''}`;
+
+      tokens.forEach((tok, idx) => {
+        const color = TOKEN_COLORS[idx % TOKEN_COLORS.length];
+        const chip = document.createElement('div');
+        chip.className = `px-2 py-1 rounded-md text-xs font-mono font-medium border ${color.bg} ${color.text} ${color.border} flex items-center gap-1 shadow-sm`;
+        chip.innerHTML = `<span>${tok}</span><span class="text-[9px] opacity-75">#${tokenIds[idx] || hashStringToTokenId(tok)}</span>`;
+        tokenContainer.appendChild(chip);
+      });
+
+      // Render Coordinates
+      document.getElementById('inspectorCoords').innerText = `(${wordData.coords[0].toFixed(1)}, ${wordData.coords[1].toFixed(1)}, ${wordData.coords[2].toFixed(1)})`;
+
+      // Render 8-Dim Vector Bars
+      const vectorContainer = document.getElementById('inspectorVectorBars');
+      vectorContainer.innerHTML = '';
+      const vectorVals = wordData.vector || [0.4, -0.3, 0.7, -0.1, 0.5, -0.6, 0.2, 0.8];
+      vectorVals.forEach(v => {
+        const barCol = document.createElement('div');
+        barCol.className = 'bg-slate-800 rounded flex flex-col justify-end p-0.5 relative group cursor-pointer';
+        const heightPct = Math.min(Math.max((Math.abs(v) / 1.0) * 100, 15), 100);
+        const barColor = v >= 0 ? 'bg-indigo-400' : 'bg-rose-400';
+        barCol.innerHTML = `
+          <div class="w-full ${barColor} rounded-sm" style="height: ${heightPct}%"></div>
+          <div class="absolute -top-6 left-1/2 -translate-x-1/2 bg-black text-[9px] font-mono px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">${v.toFixed(2)}</div>
+        `;
+        vectorContainer.appendChild(barCol);
+      });
+
+      // Render Nearest Neighbors list
+      const neighborsContainer = document.getElementById('inspectorNeighborsList');
+      neighborsContainer.innerHTML = '';
+      const neighbors = findNearestNeighbors(wordData, 3);
+
+      neighbors.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2 rounded-lg bg-space-900/60 hover:bg-slate-700/60 border border-slate-700/50 cursor-pointer transition';
+        row.onclick = () => selectWord(item.word, true);
+
+        const nCatHex = (CATEGORIES[item.word.category] || CATEGORIES.Custom).hex;
+        row.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full" style="background-color: ${nCatHex}"></span>
+            <span class="text-xs font-semibold text-white">${item.word.word}</span>
+            <span class="text-[10px] text-slate-400">(${item.word.category})</span>
+          </div>
+          <div class="text-[11px] font-mono text-indigo-300">
+            ${item.distance.toFixed(1)}u
+          </div>
+        `;
+        neighborsContainer.appendChild(row);
+      });
+    }
+
+    function testSelectedInTokenizer() {
+      if (!selectedWord) return;
+      switchTab('tokenizer');
+      const input = document.getElementById('tokenizerInput');
+      input.value = `The ${selectedWord.word} exhibits fascinating semantic embeddings in modern language models.`;
+      handleTokenizerInput(input.value);
+    }
+
+
+    /* -------------------------------------------------------------
+       6. VOCABULARY VIEW & FILTERS
+       ------------------------------------------------------------- */
+    function renderVocabGrid(filterText = '', categoryFilter = 'ALL') {
+      const container = document.getElementById('vocabGridContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const query = filterText.toLowerCase().trim();
+      const filtered = WORDS.filter(w => {
+        const matchesQuery = !query ||
+          w.word.toLowerCase().includes(query) ||
+          (w.definition && w.definition.toLowerCase().includes(query)) ||
+          w.category.toLowerCase().includes(query);
+        const matchesCat = categoryFilter === 'ALL' || w.category === categoryFilter;
+        return matchesQuery && matchesCat;
+      });
+
+      document.getElementById('vocabWordCountBadge').innerText = `Showing ${filtered.length} of ${WORDS.length} words`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-16 text-center text-slate-500">
+            <p class="text-base font-medium">No matching words found.</p>
+            <p class="text-xs text-slate-400 mt-1">Try another search term or click "Add Word" to create a new one.</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(w => {
+        const catInfo = CATEGORIES[w.category] || CATEGORIES.Custom;
+        const card = document.createElement('div');
+        card.className = 'bg-space-800 rounded-xl border border-slate-700/70 p-4 flex flex-col justify-between hover:border-slate-500 transition shadow-lg group';
+
+        const tokensDisplay = (w.tokens || [w.word]).map(t =>
+          `<span class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-[10px] font-mono text-slate-300">${t}</span>`
+        ).join(' ');
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <div>
+                <h4 class="text-base font-bold text-white group-hover:text-indigo-300 transition">${w.word}</h4>
+                <span class="text-[10px] text-slate-400 italic">${w.pos || 'noun'}</span>
+              </div>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border" style="border-color: ${catInfo.hex}; color: ${catInfo.hex}; background-color: ${catInfo.hex}15">
+                ${w.category}
+              </span>
+            </div>
+            <p class="text-xs text-slate-300 line-clamp-2 leading-relaxed mb-3">${w.definition || 'No definition available.'}</p>
+            <div class="bg-space-900/60 p-2 rounded-lg border border-slate-800 text-[11px] text-indigo-200/90 italic mb-3">
+              "${w.example || 'Example sentence not provided.'}"
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap mb-3">
+              <span class="text-[10px] text-slate-400 font-semibold uppercase">Tokens:</span>
+              ${tokensDisplay}
+            </div>
+          </div>
+          <div class="pt-3 border-t border-slate-700/60 flex items-center justify-between">
+            <span class="text-[10px] font-mono text-slate-400">XYZ: [${w.coords.map(c => Math.round(c)).join(', ')}]</span>
+            <button onclick="jumpToWordIn3D('${w.id}')" class="text-xs font-semibold px-2.5 py-1 rounded bg-indigo-600/80 hover:bg-indigo-600 text-white transition flex items-center gap-1">
+              <span>View in 3D</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function handleVocabSearch(query) {
+      const cat = document.getElementById('vocabCategorySelect').value;
+      renderVocabGrid(query, cat);
+    }
+
+    function handleVocabFilterChange(cat) {
+      const query = document.getElementById('vocabSearchInput').value;
+      renderVocabGrid(query, cat);
+    }
+
+    function jumpToWordIn3D(wordId) {
+      const word = WORDS.find(w => w.id === wordId);
+      if (!word) return;
+      switchTab('3d');
+      selectWord(word, true);
+    }
+
+
+    /* -------------------------------------------------------------
+       7. TOKENIZER VIEW LOGIC
+       ------------------------------------------------------------- */
+    function handleTokenizerInput(text) {
+      const tokens = tokenizeText(text);
+
+      // Update counters
+      const charCount = text.length;
+      const tokenCount = tokens.length;
+      const ratio = tokenCount > 0 ? (charCount / tokenCount).toFixed(1) : '0.0';
+
+      document.getElementById('statCharCount').innerText = charCount;
+      document.getElementById('statTokenCount').innerText = tokenCount;
+      document.getElementById('statRatio').innerText = ratio;
+
+      // Render colored token chips
+      const chipsContainer = document.getElementById('tokenChipsDisplay');
+      chipsContainer.innerHTML = '';
+
+      if (tokens.length === 0) {
+        chipsContainer.innerHTML = `<span class="text-xs text-slate-500 italic">Tokens will appear here as you type above...</span>`;
+      } else {
+        tokens.forEach((tok, idx) => {
+          const color = TOKEN_COLORS[idx % TOKEN_COLORS.length];
+          const chip = document.createElement('div');
+          chip.className = `token-chip px-2.5 py-1.5 rounded-lg border text-xs sm:text-sm font-mono font-bold ${color.bg} ${color.text} ${color.border} flex items-center gap-1.5 cursor-pointer shadow-sm`;
+          chip.title = `Token: "${tok.text}" | ID: ${tok.id} | Type: ${tok.type}`;
+          chip.innerHTML = `
+            <span>${tok.display}</span>
+            <span class="text-[10px] font-normal opacity-70">#${tok.id}</span>
+          `;
+          chipsContainer.appendChild(chip);
+        });
+      }
+
+      // Render Token Table
+      const tableBody = document.getElementById('tokenTableBody');
+      tableBody.innerHTML = '';
+
+      tokens.forEach((tok, idx) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-slate-800/60 transition';
+        const color = TOKEN_COLORS[idx % TOKEN_COLORS.length];
+        row.innerHTML = `
+          <td class="py-2 px-3 font-mono text-slate-500">${idx + 1}</td>
+          <td class="py-2 px-3 font-mono font-bold ${color.text}">
+            <span class="px-1.5 py-0.5 rounded ${color.bg} border ${color.border}">${tok.display}</span>
+          </td>
+          <td class="py-2 px-3 font-mono text-indigo-300 font-semibold">${tok.id}</td>
+          <td class="py-2 px-3 text-slate-400 capitalize">${tok.type}</td>
+          <td class="py-2 px-3 font-mono text-slate-400">${tok.text.length}</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    function setTokenizerText(preset) {
+      const input = document.getElementById('tokenizerInput');
+      input.value = preset;
+      handleTokenizerInput(preset);
+    }
+
+
+    /* -------------------------------------------------------------
+       8. ADD NEW WORD WORKFLOW
+       ------------------------------------------------------------- */
+    function openAddWordModal() {
+      document.getElementById('addWordModal').classList.remove('hidden');
+      document.getElementById('newWordInput').focus();
+    }
+
+    function closeAddWordModal() {
+      document.getElementById('addWordModal').classList.add('hidden');
+    }
+
+    function previewWordTokenization(raw) {
+      const chips = document.getElementById('modalTokenChips');
+      const countLabel = document.getElementById('modalTokenCount');
+
+      if (!raw || raw.trim() === '') {
+        chips.innerHTML = `<span class="text-xs text-slate-500 italic">Type a word above to see how it splits...</span>`;
+        countLabel.innerText = '0 tokens';
+        return;
+      }
+
+      const pieces = tokenizeWordPiece(raw.trim());
+      countLabel.innerText = `${pieces.length} token${pieces.length > 1 ? 's' : ''}`;
+      chips.innerHTML = '';
+
+      pieces.forEach((p, idx) => {
+        const color = TOKEN_COLORS[idx % TOKEN_COLORS.length];
+        const span = document.createElement('span');
+        span.className = `px-2 py-0.5 rounded text-xs font-mono font-bold border ${color.bg} ${color.text} ${color.border}`;
+        span.innerText = p;
+        chips.appendChild(span);
+      });
+    }
+
+    function handleAddNewWordSubmit(e) {
+      e.preventDefault();
+      const word = document.getElementById('newWordInput').value.trim();
+      const category = document.getElementById('newWordCategory').value;
+      const pos = document.getElementById('newWordPos').value;
+      const def = document.getElementById('newWordDef').value.trim() || `User added word representing the concept of ${word}.`;
+      const example = document.getElementById('newWordExample').value.trim() || `Language models process the word "${word}" as high-dimensional vectors.`;
+
+      if (!word) return;
+
+      // Tokenize the new word
+      const tokens = tokenizeWordPiece(word);
+      const tokenIds = tokens.map(t => hashStringToTokenId(t.toLowerCase()));
+
+      // Compute 3D position clustered around the category center with random jitter
+      const catCenter = (CATEGORIES[category] || CATEGORIES.Custom).center;
+      const jitter = () => (Math.random() - 0.5) * 12;
+      const coords = [
+        catCenter[0] + jitter(),
+        catCenter[1] + jitter(),
+        catCenter[2] + jitter()
+      ];
+
+      // Simulated 8-dim embedding vector
+      const vector = Array.from({ length: 8 }, () => Number(((Math.random() * 1.8) - 0.9).toFixed(2)));
+
+      const newWordData = {
+        id: `w_custom_${Date.now()}`,
+        word,
+        category,
+        pos,
+        definition: def,
+        example,
+        tokens,
+        tokenIds,
+        coords,
+        vector
+      };
+
+      // Push to data array
+      WORDS.push(newWordData);
+
+      // Re-render 3D scene
+      renderWordMeshes();
+
+      // Close modal & reset form
+      closeAddWordModal();
+      document.getElementById('addWordForm').reset();
+      previewWordTokenization('');
+
+      // Refresh vocabulary grid
+      renderVocabGrid();
+
+      // Show toast
+      showToast(`Added "${word}" with ${tokens.length} token(s) to 3D Space!`);
+
+      // Switch to 3D view and smoothly select and zoom into the new word
+      switchTab('3d');
+      selectWord(newWordData, true);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastNotification');
+      document.getElementById('toastMessage').innerText = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 4000);
+    }
+
+
+    /* -------------------------------------------------------------
+       9. TAB NAVIGATION & HUD FILTERS
+       ------------------------------------------------------------- */
+    function switchTab(tabId) {
+      const tabs = ['3d', 'tokenizer', 'vocab'];
+      tabs.forEach(t => {
+        const viewEl = document.getElementById(t === '3d' ? 'view3d' : t === 'tokenizer' ? 'viewTokenizer' : 'viewVocab');
+        const tabBtn = document.getElementById(t === '3d' ? 'navTab3d' : t === 'tokenizer' ? 'navTabTokenizer' : 'navTabVocab');
+
+        if (t === tabId) {
+          viewEl.classList.remove('hidden');
+          tabBtn.className = 'px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 bg-indigo-600 text-white shadow-sm';
+        } else {
+          viewEl.classList.add('hidden');
+          tabBtn.className = 'px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-slate-300 hover:text-white hover:bg-slate-800';
+        }
+      });
+
+      if (tabId === '3d') {
+        setTimeout(onWindowResize, 50);
+      } else if (tabId === 'vocab') {
+        renderVocabGrid();
+      }
+    }
+
+    function initCategoryHUD() {
+      const container = document.getElementById('categoryFilterContainer');
+      const select = document.getElementById('vocabCategorySelect');
+      if (!container) return;
+
+      container.innerHTML = `
+        <button onclick="filter3DCategory('ALL')" id="catBtn_ALL" class="px-2 py-1 text-xs rounded-lg font-medium border border-indigo-500 bg-indigo-600 text-white transition">
+          All
+        </button>
+      `;
+
+      Object.entries(CATEGORIES).forEach(([name, data]) => {
+        // 3D HUD pill button
+        const btn = document.createElement('button');
+        btn.id = `catBtn_${name}`;
+        btn.onclick = () => filter3DCategory(name);
+        btn.className = 'px-2 py-1 text-xs rounded-lg font-medium border border-slate-700 bg-space-900 text-slate-300 hover:text-white transition flex items-center gap-1.5';
+        btn.innerHTML = `<span class="w-2 h-2 rounded-full" style="background-color: ${data.hex}"></span><span>${name}</span>`;
+        container.appendChild(btn);
+
+        // Vocab dropdown option
+        if (select) {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.innerText = name;
+          select.appendChild(opt);
+        }
+      });
+    }
+
+    function filter3DCategory(catName) {
+      activeCategoryFilter = catName;
+
+      // Update button styling
+      const buttons = document.querySelectorAll('#categoryFilterContainer button');
+      buttons.forEach(btn => {
+        if (btn.id === `catBtn_${catName}`) {
+          btn.className = 'px-2 py-1 text-xs rounded-lg font-medium border border-indigo-500 bg-indigo-600 text-white transition flex items-center gap-1.5';
+        } else {
+          btn.className = 'px-2 py-1 text-xs rounded-lg font-medium border border-slate-700 bg-space-900 text-slate-400 hover:text-white transition flex items-center gap-1.5';
+        }
+      });
+
+      // Filter meshes visibility
+      wordObjects.forEach(obj => {
+        if (catName === 'ALL' || obj.wordData.category === catName) {
+          obj.mesh.visible = true;
+        } else {
+          obj.mesh.visible = false;
+        }
+      });
+
+      if (catName !== 'ALL' && CATEGORIES[catName]) {
+        const center = CATEGORIES[catName].center;
+        flyCameraTo([center[0] + 15, center[1] + 20, center[2] + 45], center);
+      }
+    }
+
+
+    /* -------------------------------------------------------------
+       10. APPLICATION STARTUP
+       ------------------------------------------------------------- */
+    window.addEventListener('DOMContentLoaded', () => {
+      initCategoryHUD();
+      init3DSpace();
+      renderVocabGrid();
+
+      // Pre-fill tokenizer with sample
+      setTokenizerText('Understanding transformers is unforgettable!');
+
+      // Select first word by default to show off inspector
+      setTimeout(() => {
+        if (WORDS.length > 0) {
+          selectWord(WORDS[0], false);
+        }
+      }, 200);
+    });
+  </script>
+</body>
+</html>
+
