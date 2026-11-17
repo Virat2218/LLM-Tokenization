@@ -1,6 +1,6 @@
-# LLM Vocabulary & Tokenization Explorer
+# LLM Words & Sentences 3D Embedding Explorer
 
-An interactive educational website demonstrating how Large Language Models (LLMs) process human words: from raw text to subword tokens, token IDs, and 3D embedding vector spaces.
+An interactive educational website demonstrating how Large Language Models (LLMs) process both **words** and **full sentences**: from subword tokenization to unified 3D semantic vector coordinates.
 
 ---
 
@@ -10,7 +10,7 @@ No build tools, package managers, or local dependencies are required.
 
 ### Option 1: Open Directly in Any Browser
 - Double-click `index.html`, or
-- Right-click `index.html` and select **Open With** → **Google Chrome**, **Safari**, **Firefox**, or **Brave**.
+- Right-click `index.html` and choose **Open With** → **Google Chrome**, **Safari**, **Firefox**, or **Brave**.
 
 ### Option 2: Run via a Local Server (Recommended)
 ```bash
@@ -21,37 +21,36 @@ Then visit [`http://localhost:8000`](http://localhost:8000) in your browser.
 
 ---
 
-## Features & Navigation
+## Features & 3D Sentence Capabilities
 
-1. **Top Quick Analyze Bar:**
-   - Type any word, rare term, or full sentence into the search field and click **Analyze** (or press <kbd>Enter</kbd>).
-   - Single words are immediately focused in the 3D space and details panel.
-   - Sentences automatically open in the Tokenizer Lab.
+1. **Words & Sentences in the Same 3D Space:**
+   - **Words (Round Spheres):** Represent single lexical items clustered by semantic domains (*Technology*, *Animals*, *Emotions*, *Daily Life*, *Science*).
+   - **Sentences (Rotating Diamonds):** Full phrases mapped directly into the 3D space near related words (e.g. *"Neural networks learn vector representations through training"* sits beside `neural` and `algorithm`).
+   - **Display Filter:** Toggle between **All Items**, **Words Only**, or **Sentences Only** with one click.
+   - **Neighbor Connection Lines:** Shows dashed Euclidean distance lines linking sentences to their closest related words and sentences.
 
-2. **3D Word Space (Primary Tab):**
-   - **Rotate & Zoom:** Click and drag with your mouse (or touch and drag on mobile) to rotate; use scroll wheel or pinch to zoom; right-click and drag to pan.
-   - **Interactive Points & Readable Sprites:** Each word is rendered with high-contrast text labels that always face the camera.
-   - **Details Inspector:** Clicking any word displays its definition, context example, subword tokens with IDs, and nearest semantic neighbors.
-   - **Neighbor Lines:** Toggle dashed Euclidean distance lines connecting the selected word to its closest neighbors.
-   - **Semantic Clusters:** Quick filter buttons for **Technology**, **Animals**, **Emotions**, **Daily Life**, and **Science**.
-   - **Quick Word Selector:** Click any word in the side pill cloud to instantly fly the camera to it.
+2. **Top Analyze Bar (Instant 3D Plotting):**
+   - Type any word or complete sentence into the input bar and click **Analyze & Plot in 3D**.
+   - The engine automatically tokenizes the input, calculates its semantic cluster and coordinates, renders a new point in the 3D space, and smoothly flies the camera to it.
 
-3. **Tokenizer Lab (Dedicated Tab):**
-   - Test any sentence or custom text to see how language models slice text into tokens.
-   - Color-coded visual token badges with character spans and token IDs.
-   - Statistics bar showing character count, token count, and characters-per-token ratio.
-   - Full Token ID mapping table detailing token order, type (root, prefix, suffix, space `␣`, punctuation), and length.
-   - Educational guide explaining why models use subword tokenization (handling rare words, fixed vocabulary size, space preservation).
+3. **Details Inspector:**
+   - Displays whether the active item is a **Word** or **Sentence**.
+   - Shows the full text, definition/context, 3D coordinates `[X, Y, Z]`, and nearest neighbors in space.
+   - Breaks down the item into subword and punctuation tokens with their corresponding integer token IDs.
 
-4. **Vocabulary Grid (Full Directory Tab):**
-   - Searchable, filterable card directory of all vocabulary words.
-   - Filter by category or search by word/definition.
-   - Each card displays parts of speech, definitions, example sentences, and token badges, with a **"View in 3D"** button.
+4. **Tokenizer Lab:**
+   - Test full sentences to see subwords, punctuation, and spaces (`␣`) represented as distinct colored badges.
+   - Statistics on character count, token count, and characters-per-token ratio.
+   - Detailed mapping table with token order, types (root, subword, space, punctuation), and lengths.
+   - Includes a **"Plot Sentence in 3D Space"** button to immediately visualize the analyzed text in the 3D universe.
 
-5. **Add Word Modal:**
-   - Click the green **+ Add Word** button in the header.
-   - Type any word to see real-time subword tokenization before saving.
-   - Plots the new word into its semantic cluster in 3D space, adds it to the vocabulary directory, and focuses the camera on it.
+5. **Add Word / Sentence Modal:**
+   - Select either **Word** or **Sentence / Phrase**.
+   - Live token preview updates in real-time as you type.
+   - Choose a semantic category to plot your custom entry into its corresponding 3D neighborhood.
+
+6. **Directory:**
+   - Searchable, filterable catalog of all words and sentences with category and type filters.
 
 ---
 
@@ -59,4 +58,4 @@ Then visit [`http://localhost:8000`](http://localhost:8000) in your browser.
 
 - **Subword Tokenization:** Uses a rule-based simulator modeled on Byte-Pair Encoding (BPE) principles with deterministic token IDs. Real LLMs use trained tokenizer tables with 32,000–100,000+ vocabulary tokens.
 - **3D Word Space Coordinates:** The 3D coordinates `[X, Y, Z]` are illustrative projections grouped by semantic domains (*Technology*, *Animals*, *Emotions*, *Daily Life*, *Science*). In production language models, embeddings reside in high-dimensional spaces (typically 768 to 4,096 dimensions) and are projected down to 2D/3D for visualization using dimensionality reduction techniques such as PCA or t-SNE.
-- **Vocabulary Data:** Definitions, example sentences, and parts of speech are curated sample entries to allow immediate interactive exploration.
+- **Sentence Embeddings:** Illustrates how modern sentence embedding architectures (such as Sentence-BERT) map complete thoughts into the same vector space as words.
