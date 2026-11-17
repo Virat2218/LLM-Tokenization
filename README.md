@@ -1,57 +1,57 @@
-# LLM Word Processing Explorer
+# Vocabulary Explorer: How Words Become Tokens
 
-An interactive educational website demonstrating how Large Language Models (LLMs) process human words: from raw text to subword tokens, token IDs, and 3D embedding vector spaces.
+An interactive educational tool that visualizes how language models turn text into subword tokens and map them into a 3D semantic coordinate space.
 
 ---
 
-## How to Open and Run
+## How to Open the Page
 
-No installations, build steps, or local dependencies are required.
+No build tools, package managers, or local dependencies are required.
 
-### Option 1: Open Directly in Any Browser
-- Double-click `index.html`, or
-- Right-click `index.html` and select **Open With** → **Google Chrome**, **Safari**, **Firefox**, or **Brave**.
+### Option 1: Direct Browser Open
+Double-click `index.html`, or right-click `index.html` and choose **Open With** → **Google Chrome**, **Safari**, **Firefox**, or **Brave**.
 
-### Option 2: Run via a Simple Local Server (Recommended)
-If you prefer running via a local web server:
+### Option 2: Local Web Server (Recommended)
+You can run a lightweight local HTTP server:
 
 ```bash
-# Using Python 3:
+# Using Python 3
 python3 -m http.server 8000
 ```
-Then visit [`http://localhost:8000`](http://localhost:8000) in your browser.
+Then open [`http://localhost:8000`](http://localhost:8000) in your web browser.
 
 ---
 
-## Features & How to Use
+## Features & Usage
 
-1. **3D Word Space (Embeddings)**:
-   - **Rotate & Zoom:** Click and drag with your mouse (or touch and drag on mobile) to rotate the 3D universe; use the scroll wheel or pinch to zoom; right-click and drag to pan.
-   - **Interactive Points:** Click any floating glowing word sphere to inspect its part of speech, definition, token breakdown, simulated 8-dimensional embedding vector, and 3D coordinates.
-   - **Semantic Clustering & Nearest Neighbors:** See dotted lines connecting the selected word to its 3 closest semantic neighbors (e.g. *algorithm* connects to *neural* and *computer*).
-   - **Category Filters:** Use the category buttons (**Technology**, **Animals**, **Emotions**, **Food**, **Science**) to filter words and jump between clusters.
-   - *Note on illustrative positions:* 3D coordinates demonstrate semantic proximity. Real-world language models typically use 768 to 4096 dimensions.
+1. **Prominent Analysis Field:**
+   - Enter any word (e.g. `algorithm`, `unfaithfulness`) or a full sentence and press **Enter** or select **Analyze**.
+   - If empty, an inline helpful validation message guides you to enter text.
+   - For single words, the tool displays its definition, subword breakdown, and 3D space position.
+   - For sentences, the tool slices the entire phrase into individual tokens, spaces (`␣`), and punctuation with corresponding token IDs.
 
-2. **Tokenizer Playground**:
-   - Type any sentence, phrase, or word into the live input box or click one of the quick sample presets.
-   - Watch the text split into distinct, color-coded **subword tokens** in real-time.
-   - Review token IDs, character counts, and the character-to-token ratio in the detailed token table.
+2. **3D Word Space:**
+   - **Rotate:** Click and drag with mouse or finger.
+   - **Pan:** Right-click and drag (or two-finger drag).
+   - **Zoom:** Use the mouse scroll wheel or pinch on trackpads/touchscreens.
+   - **Select Point:** Click any word sphere or label to smoothly focus on it and inspect its details.
+   - **Neighbor Lines:** Displays dashed connection lines to its three closest neighbors in Euclidean distance.
 
-3. **Vocabulary Explorer**:
-   - Browse the curated word database with definitions, example sentences, and token counts.
-   - Search by word, definition, or category.
-   - Click **View in 3D** on any card to immediately focus the 3D camera on that word.
+3. **Details Panel:**
+   - Shows the selected word, its part of speech, semantic category, plain-language definition, and contextual example.
+   - Displays subword token chips (e.g., `al` + `gorithm`) with deterministic token IDs.
+   - Lists closest nearby words in space with one-click navigation.
 
-4. **Add a Word**:
-   - Click the green **+ Add Word** button in the header.
-   - Type a new word, choose its semantic category, and optionally add a definition and example sentence.
-   - See an instant preview of its subword tokenization.
-   - When submitted, the word is immediately calculated, placed inside its category cluster, rendered in the 3D space, and focused by the camera.
+4. **Vocabulary List & Add Word:**
+   - Browse and search all available words. The currently active word is visually highlighted.
+   - Click **+ Add Word** to define a custom word with category and definition. Once saved, it is tokenized, given 3D coordinates, and rendered in the 3D space.
 
 ---
 
-## File Structure
+## Identification of Sample & Simulated Data
 
-- `index.html` — Complete standalone application (HTML structure, Tailwind CSS styling, Three.js 3D visualization, and JavaScript logic).
-- `README.md` — Guide on how to open and explore the application.
+This project is an educational demonstration designed to run offline and in-browser without connecting to a proprietary backend:
 
+- **Subword Tokenization:** Uses a rule-based simulator modeled on Byte-Pair Encoding (BPE) principles (decomposing words into prefixes, stems, suffixes, and punctuation with deterministic token IDs). Real LLMs (such as GPT-4 or Gemini) use trained tokenizer tables with 32,000–100,000+ vocabulary tokens.
+- **3D Word Space Coordinates:** The 3D coordinates `[X, Y, Z]` are illustrative projections grouped by semantic domains (*Technology*, *Animals*, *Emotions*, *Daily Life*, *Science*). In production language models, embeddings reside in high-dimensional spaces (typically 768 to 4,096 dimensions) and are projected down to 2D/3D for visualization using dimensionality reduction techniques such as PCA or t-SNE.
+- **Vocabulary Data:** Definitions, example sentences, and parts of speech are curated sample entries to allow immediate interactive exploration.
